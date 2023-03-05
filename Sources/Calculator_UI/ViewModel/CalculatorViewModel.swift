@@ -15,12 +15,15 @@ import UIKit
 class CalculatorViewModel{
     let disposeBag = DisposeBag()
     var displayErrorMessage = PublishSubject<String?>()
-    var showEmptyView = BehaviorRelay<Bool>(value: false)
+    var showEmpty = BehaviorRelay<Bool>(value: false)
 
     //MARK: enabledFeaturesList contain all feature names that user has set through FeatureToggling package presented in Features tab item
     private var featureManager: FeatureToggleService!
     var enabledFeaturesList :[String] = []
     let enabledOpeationButtons = BehaviorRelay<[[CalculatorButtons]]>(value: [])
+    let binaryOperations:[String] = Operations.BinaryOperations.allCases.map{$0.rawValue}
+    let unaryOperations:[String] = Operations.UnaryOperatotions.allCases.map{$0.rawValue}
+
     
     //MARK: Calculation Variables
     public var setClear :Bool = true
@@ -42,14 +45,22 @@ class CalculatorViewModel{
     init(featureManager : FeatureToggleService){
         self.featureManager = featureManager
         displayText.accept("0")
+
     }
     func getFeatures()throws{
         guard let featureManager = self.featureManager else {return}
         do {
             try featureManager.getFeatureNames(.enabled){ features in
                 self.enabledFeaturesList = features
+                let enabledUnary = self.unaryOperations.filter(
+                    self.enabledFeaturesList.contains)
+                let enabledBinary = self.binaryOperations.filter(self.enabledFeaturesList.contains)
+                
                 if self.enabledFeaturesList.count == 0 {
-                    self.showEmptyView.accept(true)
+                    self.showEmpty.accept(true)
+                }
+                else if enabledUnary.count == 0 && enabledBinary.count == 0 {
+                    self.showEmpty.accept(true)
                 }
             }
         }catch let error as FeatureTogglingErrors{
@@ -72,13 +83,11 @@ class CalculatorViewModel{
         }
     }
     func getEnabledOperationButtons(){
-        try? getFeatures()
+        
         guard enabledFeaturesList.count>0 else {
             return
         }
         var enabledButtons:[[CalculatorButtons]] = []
-        let binaryOperations:[String] = Operations.BinaryOperations.allCases.map{$0.rawValue}
-        let unaryOperations:[String] = Operations.UnaryOperatotions.allCases.map{$0.rawValue}
         var enabledDarkButtons:[CalculatorButtons] = (binaryOperations.filter(enabledFeaturesList.contains)).map{featureName in
             return CalculatorButtons.operation(featureName)
         }

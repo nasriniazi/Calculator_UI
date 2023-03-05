@@ -27,7 +27,7 @@ public class CalculatorViewController: UIViewController {
     public override func viewDidLoad() {
         super.viewDidLoad()
         if !checkIfButtonLoaded(){
-            setupBindings()
+            setupView()
         }
         else{
             
@@ -53,7 +53,7 @@ public class CalculatorViewController: UIViewController {
         
     }
     public override func viewWillAppear(_ animated: Bool) {
-        setupBindings()
+        setupView()
     }
     private func checkIfButtonLoaded()->Bool{
         if enabledDarkButtons.count == 0 && enabledLightButtons.count == 0 {
@@ -61,13 +61,32 @@ public class CalculatorViewController: UIViewController {
         }
         return true
     }
+    func setupView(){
+        try? self.viewModel.getFeatures()
+        ///subscribe display empty view in case there is no enabled feature
+        self.viewModel.showEmpty.subscribe{event in
+            DispatchQueue.main.async {
+                if let value = event.element,  value == true{
+                    debugPrint("***showEmpty==TRUE****")
+
+                    self.view = CustomEmptyView(delegate: self, message: Constants.emptyViewMessage)
+                    return
+                }
+                
+                else {
+                    self.setupBindings()
+                }
+            }
+        }.disposed(by: viewModel.disposeBag)
+        
+    }
     func setupBindings(){
+        
         ///ask viewModel to get Enabled Features
         self.viewModel.getEnabledOperationButtons()
-        
         ///subscribe for enabled buttons result
         self.viewModel.enabledOpeationButtons.subscribe{ event in
-            if let buttons = event.element  {
+            if let buttons = event.element,buttons.count > 1 {
                 DispatchQueue.main.async {
                     self.enabledDarkButtons = buttons[0]
                     self.enabledLightButtons = buttons[1]
@@ -82,18 +101,8 @@ public class CalculatorViewController: UIViewController {
         ///subscribe for any error which should display to the user
         self.viewModel.displayErrorMessage.subscribe { event in
             DispatchQueue.main.async {
-                
                 if let errorMessage = event.element ,  errorMessage != nil {
                     MessageDisplay.displaySimpleMessage(titleStr: "FeatureToggling Error", txtMessage: errorMessage! , owner: self)
-                }
-            }
-        }.disposed(by: viewModel.disposeBag)
-        ///subscribe display empty view in case there is no enabled feature
-        self.viewModel.showEmptyView.subscribe{event in
-            DispatchQueue.main.async {
-                if let value = event.element,  value == true{
-                    self.view = CustomEmptyView(delegate: self, message: Constants.emptyViewMessage)
-                    return
                 }
             }
         }.disposed(by: viewModel.disposeBag)
@@ -103,11 +112,10 @@ public class CalculatorViewController: UIViewController {
         self.reloadUIWithFeatures()
         bindClearButton()
     }
-    
     ///this method configure operations buttons based on enabled features
     func reloadUIWithFeatures(){
-        //        debugPrint("enabledDarkButtons=\(enabledDarkButtons)")
-        //        debugPrint("enabledLightButtons=\(enabledLightButtons)")
+        debugPrint("enabledDarkButtons=\(enabledDarkButtons)")
+        debugPrint("enabledLightButtons=\(enabledLightButtons)")
         self.reloadDarkButtonsStackView(enabledDarkButtons)
         reloadLightButtonsStackView(enabledLightButtons)
         
